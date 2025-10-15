@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Student Placement System - Login/Register</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Student Internship & Placement Management System</h1>
+    <div id="auth">
+      <button onclick="showLogin('student')">👨‍🎓 Student Login</button>
+      <button onclick="showLogin('officer')">👔 Officer Login</button>
+      <button onclick="showRegister('student')">📝 Student Register</button>
+      <button onclick="showRegister('officer')">🏢 Officer Register</button>
+    </div>
+    <div id="login-form" style="display:none;">
+      <h2 id="login-title">Login</h2>
+      <form id="login">
+        <input type="email" id="email" name="email" placeholder="Email" required />
+        <input type="password" id="password" name="password" placeholder="Password" required />
+        <button type="submit">🔐 Login</button>
+      </form>
+      <button class="back-button" onclick="showAuth()">← Back</button>
+    </div>
+    <div id="register-form" style="display:none;">
+      <h2 id="register-title">Register</h2>
+      <form id="register">
+        <input type="text" id="name" name="name" placeholder="Full Name" required />
+        <input type="email" id="reg-email" name="email" placeholder="Email Address" required />
+        <input type="password" id="reg-password" name="password" placeholder="Password" required />
+        <div id="student-fields" style="display:none;">
+          <input type="text" id="branch" name="branch" placeholder="Branch" required />
+          <input type="number" id="cgpa" name="cgpa" step="0.01" placeholder="CGPA" required />
+          <input type="text" id="skills" name="skills" placeholder="Skills (comma separated)" required />
+        </div>
+        <div id="officer-fields" style="display:none;">
+          <input type="text" id="department" name="department" placeholder="Department" required />
+          <input type="text" id="contact" name="contact" placeholder="Contact" required />
+        </div>
+        <button type="submit">✅ Register</button>
+      </form>
+      <button class="back-button" onclick="showAuth()">← Back</button>
+    </div>
+  </div>
+  <script src="js/app.js"></script>
+</body>
+</html>

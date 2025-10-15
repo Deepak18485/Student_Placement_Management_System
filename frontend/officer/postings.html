@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manage Job Postings</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Add Job Posting</h1>
+    <form id="posting-form">
+      <input type="text" id="title" placeholder="Job Title" required>
+      <textarea id="description" placeholder="Description" required></textarea>
+      <input type="text" id="branch" placeholder="Eligible Branches (comma separated)" required>
+      <input type="number" id="min-cgpa" step="0.01" placeholder="Min CGPA" required>
+      <input type="number" id="package" step="0.01" placeholder="Package/Stipend" required>
+      <input type="date" id="deadline" required>
+      <input type="text" id="skills" placeholder="Required Skills (comma separated)" required>
+      <button type="submit">Post Job</button>
+    </form>
+    <a href="dashboard.html">Back to Dashboard</a>
+  </div>
+  <script src="../js/app.js"></script>
+</body>
+</html>

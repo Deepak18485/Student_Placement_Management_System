@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Update Profile</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Update Profile</h1>
+    <form id="profile-form">
+      <input type="text" id="name" placeholder="Name" required>
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="text" id="branch" placeholder="Branch" required>
+      <input type="number" id="cgpa" step="0.01" placeholder="CGPA" required>
+      <input type="text" id="skills" placeholder="Skills (comma separated)" required>
+      <input type="file" id="resume" accept=".pdf,.doc,.docx">
+      <button type="submit">Update</button>
+    </form>
+    <a href="dashboard.html">Back to Dashboard</a>
+  </div>
+<div id="studentsSection" style="display: none;">
+    <h2>Student Management</h2>
+    <button onclick="loadStudents()">Load All Students</button>
+    <div id="studentsList"></div>
+</div>
+  <script src="../js/app.js"></script>
+</body>
+</html>

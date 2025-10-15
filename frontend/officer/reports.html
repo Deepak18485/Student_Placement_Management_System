@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Generate Reports</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Placement Reports</h1>
+    <div>
+      <label for="report-type">Report Type:</label>
+      <select id="report-type">
+        <option value="company">Company-wise</option>
+        <option value="branch">Branch-wise</option>
+        <option value="year">Year-wise</option>
+      </select>
+      <input type="text" id="report-value" placeholder="Value (e.g., Company Name, Branch, Year)">
+      <button onclick="generateReport()">Generate</button>
+    </div>
+    <canvas id="report-chart"></canvas>
+    <a href="dashboard.html">Back to Dashboard</a>
+  </div>
+  <script src="../js/chart.js"></script>
+</body>
+</html>

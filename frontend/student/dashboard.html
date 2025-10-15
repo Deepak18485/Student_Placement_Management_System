@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <header class="dashboard-header">
+      <h1>Student Dashboard</h1>
+      <nav class="dashboard-nav">
+        <a href="profile.html" class="nav-link">Update Profile</a>
+        <a href="jobs.html" class="nav-link">View Jobs</a>
+        <a href="applications.html" class="nav-link">My Applications</a>
+        <button onclick="logout()" class="logout-btn">Logout</button>
+      </nav>
+    </header>
+
+    <main class="dashboard-main">
+      <!-- Profile Section -->
+      <section class="dashboard-section profile-section">
+        <h2>Profile Section</h2>
+        <div id="profile-info" class="profile-card">
+          <p>Loading profile...</p>
+        </div>
+        <a href="profile.html" class="edit-btn">Edit Profile</a>
+      </section>
+
+      <!-- Available Opportunities -->
+      <section class="dashboard-section opportunities-section">
+        <h2>Available Opportunities</h2>
+        <div id="opportunities-list" class="opportunities-grid">
+          <p>Loading opportunities...</p>
+        </div>
+        <a href="jobs.html" class="view-all-btn">View All Jobs</a>
+      </section>
+
+      <!-- Application Tracking -->
+      <section class="dashboard-section applications-section">
+        <h2>Application Tracking</h2>
+        <div id="applications-table" class="applications-table">
+          <p>Loading applications...</p>
+        </div>
+        <a href="applications.html" class="view-all-btn">View All Applications</a>
+      </section>
+
+      <!-- Notifications / Alerts -->
+      <section class="dashboard-section notifications-section">
+        <h2>Notifications / Alerts</h2>
+        <div id="notifications-list" class="notifications-list">
+          <div class="notification-item">
+            <p>Welcome to the placement system! Check out new opportunities.</p>
+            <span class="notification-time">Just now</span>
+          </div>
+          <!-- More notifications can be added dynamically -->
+        </div>
+      </section>
+
+      <!-- Reports / History -->
+      <section class="dashboard-section reports-section">
+        <h2>Reports / History</h2>
+        <div class="reports-grid">
+          <div class="report-card">
+            <h3>Total Applications</h3>
+            <p id="total-applications">0</p>
+          </div>
+          <div class="report-card">
+            <h3>Shortlisted</h3>
+            <p id="shortlisted-count">0</p>
+          </div>
+          <div class="report-card">
+            <h3>Selected</h3>
+            <p id="selected-count">0</p>
+          </div>
+          <div class="report-card">
+            <h3>Rejected</h3>
+            <p id="rejected-count">0</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="../js/app.js"></script>
+  <script src="../js/dashboard.js"></script>
+</body>
+</html>
