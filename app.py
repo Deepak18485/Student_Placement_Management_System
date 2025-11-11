@@ -3,6 +3,7 @@ import mysql.connector
 import os
 from werkzeug.utils import secure_filename
 import bcrypt, jwt, datetime
+import json
 
 # ===========================
 # Database & App Config
@@ -50,7 +51,7 @@ def student_login():
 
     db = get_db()
     cur = db.cursor(dictionary=True)
-    cur.execute("SELECT student_id, email, password_hash, name FROM Student WHERE email = %s", (email,))
+    cur.execute("SELECT student_id, university_roll, email, password_hash, name FROM students WHERE email = %s", (email,))
     row = cur.fetchone()
     cur.close(); db.close()
 
@@ -67,7 +68,9 @@ def student_login():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8)
     }, JWT_SECRET, algorithm="HS256")
 
-    return jsonify({"token": token, "name": row["name"], "email": row["email"]})
+    return jsonify({"token": token, "name": row["name"], "email": row["email"], "student_id": row["student_id"], "university_roll": row["university_roll"]})
+
+
 
 # ===========================
 # Officer Authentication
@@ -129,7 +132,7 @@ def officer_login():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8)
     }, JWT_SECRET, algorithm="HS256")
 
-    return jsonify({"token": token, "name": row["name"], "email": row["email"]})
+    return jsonify({"token": token, "name": row["name"], "email": row["email"], "officer_id": row["officer_id"]})
 
 # ===========================
 # Job Posting / Applications
@@ -138,17 +141,28 @@ def officer_login():
 def get_jobs():
     db = get_db()
     cur = db.cursor(dictionary=True)
-    cur.execute("SELECT job_id, title, company, location, description, created_at FROM JobPosting ORDER BY created_at DESC")
+    cur.execute("SELECT job_id, title, description, branch_eligibility, min_cgpa, package_stipend, deadline, created_at FROM JobPosting ORDER BY created_at DESC")
     rows = cur.fetchall()
     cur.close(); db.close()
     return jsonify(rows)
 
 @app.route("/api/jobs/<int:job_id>/apply", methods=["POST"])
 def apply_job(job_id):
-    student_id = request.form.get("student_id")
+    # Extract student_id from JWT token
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        student_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
     resume = request.files.get("resume")
-    if not student_id or not resume:
-        return jsonify({"error": "student_id and resume required"}), 400
+    if not resume:
+        return jsonify({"error": "Resume file required"}), 400
 
     filename = secure_filename(resume.filename)
     save_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{student_id}_{int(datetime.datetime.utcnow().timestamp())}_{filename}")
@@ -163,29 +177,36 @@ def apply_job(job_id):
     return jsonify({"message": "Applied successfully"})
 
 # ===========================
-# Student Management (Add this section)
+# Student Management 
 # ===========================
 @app.route("/api/students", methods=["GET"])
+@app.route("/api/student/list", methods=["GET"])
 def get_all_students():
     """Get all students with their details"""
     try:
         db = get_db()
         cur = db.cursor(dictionary=True)
-        
-        # Query to get all student details
+
+        # Query to get all student details with skills
         cur.execute("""
-            SELECT student_id, name, email, phone, department, year, cgpa, 
-                   skills, resume_path, created_at 
-            FROM Student 
-            ORDER BY created_at DESC
+            SELECT s.student_id, s.university_roll, s.name, s.email, s.branch as department, s.cgpa,
+                   GROUP_CONCAT(sk.skill_name) as skills, s.resume_path, s.created_at
+            FROM students s
+            LEFT JOIN StudentSkill ss ON s.student_id = ss.student_id
+            LEFT JOIN Skill sk ON ss.skill_id = sk.skill_id
+            GROUP BY s.student_id
+            ORDER BY s.created_at DESC
         """)
-        
+
         students = cur.fetchall()
+        # Convert skills string to array
+        for student in students:
+            student['skills'] = student['skills'].split(',') if student['skills'] else []
         cur.close()
         db.close()
-        
+
         return jsonify(students)
-        
+
     except Exception as e:
         print("Error fetching students:", e)
         return jsonify({"error": "Failed to fetch students"}), 500
@@ -196,27 +217,254 @@ def get_student_details(student_id):
     try:
         db = get_db()
         cur = db.cursor(dictionary=True)
-        
+
         # Query to get specific student details
         cur.execute("""
-            SELECT student_id, name, email, phone, department, year, cgpa, 
-                   skills, resume_path, created_at 
-            FROM Student 
+            SELECT student_id, name, email, phone, department, year, cgpa,
+                   skills, resume_path, created_at
+            FROM students
             WHERE student_id = %s
         """, (student_id,))
-        
+
         student = cur.fetchone()
         cur.close()
         db.close()
-        
+
         if not student:
             return jsonify({"error": "Student not found"}), 404
-            
+
         return jsonify(student)
-        
+
     except Exception as e:
         print("Error fetching student details:", e)
         return jsonify({"error": "Failed to fetch student details"}), 500
+
+@app.route("/api/student/profile", methods=["GET"])
+def get_student_profile():
+    """Get profile data for the logged-in student"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        student_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        cur.execute("""
+            SELECT s.student_id, s.university_roll, s.name, s.email, s.branch, s.cgpa, s.resume_path,
+                   GROUP_CONCAT(sk.skill_name) as skills
+            FROM students s
+            LEFT JOIN StudentSkill ss ON s.student_id = ss.student_id
+            LEFT JOIN Skill sk ON ss.skill_id = sk.skill_id
+            WHERE s.student_id = %s
+            GROUP BY s.student_id
+        """, (student_id,))
+        profile = cur.fetchone()
+        cur.close()
+        db.close()
+
+        if not profile:
+            return jsonify({"error": "Profile not found"}), 404
+
+        # Convert skills to list
+        profile['skills'] = profile['skills'].split(',') if profile['skills'] else []
+        # Check if resume exists
+        profile['resume_uploaded'] = bool(profile['resume_path'] and os.path.exists(profile['resume_path']))
+
+        return jsonify(profile)
+    except Exception as e:
+        print("Error fetching profile:", e)
+        return jsonify({"error": "Failed to fetch profile"}), 500
+
+@app.route("/api/student/profile", methods=["PUT"])
+def update_student_profile():
+    """Update profile data for the logged-in student"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        student_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    data = request.form or request.json or {}
+    name = data.get("name")
+    email = data.get("email")
+    branch = data.get("branch")
+    cgpa = data.get("cgpa")
+
+    # Handle skills - could be JSON string or comma-separated string
+    skills_raw = data.get("skills", "")
+    if isinstance(skills_raw, str):
+        try:
+            skills = json.loads(skills_raw)  # Try parsing as JSON first
+        except json.JSONDecodeError:
+            skills = [s.strip() for s in skills_raw.split(",") if s.strip()]  # Fallback to comma-separated
+    else:
+        skills = skills_raw if skills_raw else []
+
+    resume = request.files.get("resume")
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+
+        # Update basic info
+        update_fields = []
+        update_values = []
+        if name:
+            update_fields.append("name = %s")
+            update_values.append(name)
+        if email:
+            update_fields.append("email = %s")
+            update_values.append(email)
+        if branch:
+            update_fields.append("branch = %s")
+            update_values.append(branch)
+        if cgpa:
+            update_fields.append("cgpa = %s")
+            update_values.append(float(cgpa))
+
+        if update_fields:
+            update_values.append(student_id)
+            cur.execute(f"UPDATE students SET {', '.join(update_fields)} WHERE student_id = %s", update_values)
+
+        # Handle resume upload
+        if resume:
+            filename = secure_filename(resume.filename)
+            save_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{student_id}_{int(datetime.datetime.utcnow().timestamp())}_{filename}")
+            resume.save(save_path)
+            cur.execute("UPDATE students SET resume_path = %s WHERE student_id = %s", (save_path, student_id))
+
+        # Handle skills
+        if skills:
+            # Remove existing skills
+            cur.execute("DELETE FROM StudentSkill WHERE student_id = %s", (student_id,))
+            # Add new skills
+            for skill_name in skills:
+                skill_name = skill_name.strip()
+                if skill_name:
+                    # Insert skill if not exists
+                    cur.execute("INSERT IGNORE INTO Skill (skill_name) VALUES (%s)", (skill_name,))
+                    cur.execute("SELECT skill_id FROM Skill WHERE skill_name = %s", (skill_name,))
+                    skill_id = cur.fetchone()[0]
+                    cur.execute("INSERT INTO StudentSkill (student_id, skill_id) VALUES (%s, %s)", (student_id, skill_id))
+
+        db.commit()
+        cur.close()
+        db.close()
+        return jsonify({"message": "Profile updated successfully"})
+    except Exception as e:
+        print("Error updating profile:", e)
+        return jsonify({"error": "Failed to update profile"}), 500
+
+@app.route("/api/student/applications", methods=["GET"])
+def get_student_applications():
+    """Get applications for the logged-in student"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        student_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        cur.execute("""
+            SELECT a.application_id, j.title, a.status, a.applied_on
+            FROM Application a
+            JOIN JobPosting j ON a.job_id = j.job_id
+            WHERE a.student_id = %s
+            ORDER BY a.applied_on DESC
+        """, (student_id,))
+        applications = cur.fetchall()
+        cur.close()
+        db.close()
+        return jsonify(applications)
+    except Exception as e:
+        print("Error fetching applications:", e)
+        return jsonify({"error": "Failed to fetch applications"}), 500
+
+@app.route("/api/officer/postings", methods=["GET"])
+def get_officer_postings():
+    """Get all job postings for officer"""
+    # Assuming officers can view all postings
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        cur.execute("SELECT job_id, title, description, branch_eligibility, min_cgpa, package_stipend, deadline, created_at FROM JobPosting ORDER BY created_at DESC")
+        postings = cur.fetchall()
+        cur.close()
+        db.close()
+        return jsonify(postings)
+    except Exception as e:
+        print("Error fetching postings:", e)
+        return jsonify({"error": "Failed to fetch postings"}), 500
+
+@app.route("/api/officer/student/<university_roll>", methods=["GET"])
+def get_student_by_roll_number(university_roll):
+    """Get student profile by university roll number"""
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        cur.execute("""
+            SELECT s.student_id, s.university_roll, s.name, s.email, s.branch, s.cgpa, s.resume_path,
+                   GROUP_CONCAT(sk.skill_name) as skills
+            FROM students s
+            LEFT JOIN StudentSkill ss ON s.student_id = ss.student_id
+            LEFT JOIN Skill sk ON ss.skill_id = sk.skill_id
+            WHERE s.university_roll = %s
+            GROUP BY s.student_id
+        """, (university_roll,))
+        student = cur.fetchone()
+        cur.close()
+        db.close()
+        if not student:
+            return jsonify({"error": "Student not found"}), 404
+
+        # Process skills
+        student['skills'] = student['skills'].split(',') if student['skills'] else []
+        student['resume_uploaded'] = bool(student['resume_path'])
+
+        return jsonify(student)
+    except Exception as e:
+        print("Error fetching student:", e)
+        return jsonify({"error": "Failed to fetch student"}), 500
+
+@app.route("/api/officer/applications", methods=["GET"])
+def get_officer_applications():
+    """Get all applications for officer"""
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        cur.execute("""
+            SELECT a.application_id, s.name as student_name, j.title as job_title, a.status, a.applied_on
+            FROM Application a
+            JOIN students s ON a.student_id = s.student_id
+            JOIN JobPosting j ON a.job_id = j.job_id
+            ORDER BY a.applied_on DESC
+        """)
+        applications = cur.fetchall()
+        cur.close()
+        db.close()
+        return jsonify(applications)
+    except Exception as e:
+        print("Error fetching applications:", e)
+        return jsonify({"error": "Failed to fetch applications"}), 500
     
     
 # ===========================

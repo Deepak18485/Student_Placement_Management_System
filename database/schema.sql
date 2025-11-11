@@ -5,15 +5,17 @@ CREATE DATABASE IF NOT EXISTS student_placement_system;
 USE student_placement_system;
 
 -- Tables
-CREATE TABLE Student (
-    student_id INT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE students (
+    student_id INT NOT NULL AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     branch VARCHAR(50) NOT NULL,
-    cgpa DECIMAL(3,2) NOT NULL CHECK (cgpa >= 0 AND cgpa <= 10),
+    cgpa DECIMAL(3,2) NOT NULL,
     resume_path VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    university_roll INT NOT NULL,
+    PRIMARY KEY (student_id)
 );
 
 CREATE TABLE Skill (
@@ -42,7 +44,7 @@ CREATE TABLE JobPosting (
     officer_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     description TEXT,
-    branch_eligibility VARCHAR(50), -- Can be JSON for multiple branches
+    branch_eligibility VARCHAR(50),
     min_cgpa DECIMAL(3,2) NOT NULL CHECK (min_cgpa >= 0 AND min_cgpa <= 10),
     package_stipend DECIMAL(10,2),
     deadline DATE NOT NULL,

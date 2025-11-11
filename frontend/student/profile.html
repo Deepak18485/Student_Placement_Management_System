@@ -9,6 +9,8 @@
   <div class="container">
     <h1>Update Profile</h1>
     <form id="profile-form">
+      <input type="text" id="student_id" placeholder="Student ID" readonly>
+      <input type="text" id="university_roll_number" placeholder="University Roll Number" readonly>
       <input type="text" id="name" placeholder="Name" required>
       <input type="email" id="email" placeholder="Email" required>
       <input type="text" id="branch" placeholder="Branch" required>
@@ -25,5 +27,83 @@
     <div id="studentsList"></div>
 </div>
   <script src="../js/app.js"></script>
+  <script>
+    const API_BASE = '';
+    const token = localStorage.getItem('token');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!token) {
+        window.location.href = '/';
+        return;
+      }
+      loadProfileData();
+    });
+
+    // Load current profile data into form
+    async function loadProfileData() {
+      try {
+        const res = await fetch(`${API_BASE}/api/student/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const profile = await res.json();
+          document.getElementById('student_id').value = profile.student_id;
+          document.getElementById('university_roll_number').value = profile.university_roll_number;
+          document.getElementById('name').value = profile.name;
+          document.getElementById('email').value = profile.email;
+          document.getElementById('branch').value = profile.branch;
+          document.getElementById('cgpa').value = profile.cgpa;
+          document.getElementById('skills').value = profile.skills.join(', ');
+        } else {
+          alert('Failed to load profile data');
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        alert('Error loading profile data');
+      }
+    }
+
+    // Handle profile update form submission
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData();
+      formData.append('name', document.getElementById('name').value);
+      formData.append('email', document.getElementById('email').value);
+      formData.append('branch', document.getElementById('branch').value);
+      formData.append('cgpa', document.getElementById('cgpa').value);
+
+      // Process skills field
+      const skillsValue = document.getElementById('skills').value;
+      if (skillsValue) {
+        const skillsArray = skillsValue.split(',').map(s => s.trim()).filter(s => s);
+        formData.append('skills', JSON.stringify(skillsArray));
+      }
+
+      // Handle resume file
+      const resumeFile = document.getElementById('resume').files[0];
+      if (resumeFile) {
+        formData.append('resume', resumeFile);
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/student/profile`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(result.message);
+          window.location.href = 'dashboard.html'; // Redirect back to dashboard
+        } else {
+          alert(result.error || 'Failed to update profile');
+        }
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        alert('Failed to update profile');
+      }
+    });
+  </script>
 </body>
 </html>

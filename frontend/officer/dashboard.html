@@ -24,6 +24,13 @@
         <div id="officer-profile-info" class="profile-card">
           <p>Loading profile...</p>
         </div>
+        <div class="search-section">
+          <input type="text" id="student-roll-search" placeholder="Enter University Roll Number" />
+          <button onclick="searchStudentByRollNumber()">Search Student</button>
+        </div>
+        <div id="student-profile-result" class="profile-card" style="display: none;">
+          <!-- Student profile will be displayed here -->
+        </div>
         <a href="#" class="edit-btn">Edit Profile</a>
       </section>
 
@@ -36,13 +43,13 @@
         <a href="postings.html" class="view-all-btn">Create New Posting</a>
       </section>
 
-      <!-- Student Eligibility & Applications -->
+      <!-- Registered Students -->
       <section class="dashboard-section applications-section">
-        <h2>Student Eligibility & Applications</h2>
+        <h2>Registered Students</h2>
         <div id="recent-applications" class="applications-table">
-          <p>Loading recent applications...</p>
+          <p>Loading registered students...</p>
         </div>
-        <a href="manage.html" class="view-all-btn">Manage All Applications</a>
+        <a href="manage.html" class="view-all-btn">Manage Students</a>
       </section>
 
       <!-- Notifications & Communication -->

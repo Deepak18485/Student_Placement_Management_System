@@ -1,6 +1,13 @@
-// Officer Dashboard specific JavaScript
+py// Officer Dashboard specific JavaScript
+
+const API_BASE = '';
+const token = localStorage.getItem('token');
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (!token) {
+    window.location.href = '/';
+    return;
+  }
   loadOfficerProfile();
   loadActivePostings();
   loadRecentApplications();
@@ -10,22 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load Officer Profile Info
 async function loadOfficerProfile() {
   try {
-    // Assume there's a profile endpoint for officer
-    const res = await fetch(`${API_BASE}/officer/profile`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const profile = await res.json();
-      const profileInfo = document.getElementById('officer-profile-info');
-      profileInfo.innerHTML = `
-        <p><strong>Name:</strong> ${profile.name}</p>
-        <p><strong>Email:</strong> ${profile.email}</p>
-        <p><strong>Department:</strong> ${profile.department || 'N/A'}</p>
-        <p><strong>Contact:</strong> ${profile.contact || 'N/A'}</p>
-      `;
-    } else {
-      document.getElementById('officer-profile-info').innerHTML = '<p>Profile not available.</p>';
-    }
+    // For now, show placeholder as profile endpoint doesn't exist
+    const profileInfo = document.getElementById('officer-profile-info');
+    profileInfo.innerHTML = `
+      <p><strong>Name:</strong> Placement Officer</p>
+      <p><strong>Email:</strong> officer@example.com</p>
+      <p><strong>Department:</strong> Placement Cell</p>
+      <p><strong>Contact:</strong> +91-1234567890</p>
+    `;
   } catch (error) {
     console.error('Error loading officer profile:', error);
     document.getElementById('officer-profile-info').innerHTML = '<p>Error loading profile.</p>';
@@ -35,7 +34,7 @@ async function loadOfficerProfile() {
 // Load Active Postings
 async function loadActivePostings() {
   try {
-    const res = await fetch(`${API_BASE}/officer/postings`, {
+    const res = await fetch(`${API_BASE}/api/officer/postings`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
@@ -45,9 +44,9 @@ async function loadActivePostings() {
         activePostings.innerHTML = postings.slice(0, 3).map(posting => `
           <div class="posting-card">
             <h3>${posting.title}</h3>
-            <p><strong>Company:</strong> ${posting.company || 'N/A'}</p>
-            <p><strong>Deadline:</strong> ${new Date(posting.deadline).toLocaleDateString()}</p>
-            <p><strong>Applications:</strong> ${posting.application_count || 0}</p>
+            <p><strong>Description:</strong> ${posting.description || 'N/A'}</p>
+            <p><strong>Eligibility:</strong> Branch: ${posting.branch_eligibility || 'N/A'}, CGPA: ${posting.min_cgpa || 'N/A'}</p>
+            <p><strong>Package:</strong> ${posting.package_stipend || 'N/A'}</p>
             <button onclick="editPosting(${posting.job_id})">Edit</button>
           </div>
         `).join('');
@@ -63,52 +62,85 @@ async function loadActivePostings() {
   }
 }
 
-// Load Recent Applications
+// Load Registered Students
 async function loadRecentApplications() {
   try {
-    // Assume fetch all applications for officer
-    const res = await fetch(`${API_BASE}/officer/applications`, {
+    const res = await fetch(`${API_BASE}/api/student/list`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
-      const apps = await res.json();
-      const recentApps = document.getElementById('recent-applications');
-      if (apps.length > 0) {
-        recentApps.innerHTML = `
-          <table>
+      const students = await res.json();
+      const studentsTable = document.getElementById('recent-applications');
+      if (students.length > 0) {
+        studentsTable.innerHTML = `
+          <input type="text" id="student-search" placeholder="Search by roll number, branch, or skill..." onkeyup="filterStudents()">
+          <table id="students-table">
             <thead>
               <tr>
-                <th>Student Name</th>
-                <th>Job Title</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>Student ID</th>
+                <th>University Roll Number</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Branch</th>
+                <th>CGPA</th>
+                <th>Skills</th>
+                <th>Resume</th>
               </tr>
             </thead>
             <tbody>
-              ${apps.slice(0, 5).map(app => `
+              ${students.map(student => `
                 <tr>
-                  <td>${app.student_name}</td>
-                  <td>${app.job_title}</td>
-                  <td>${app.status}</td>
-                  <td>
-                    <button onclick="updateStatus(${app.application_id}, 'Shortlisted')">Shortlist</button>
-                    <button onclick="updateStatus(${app.application_id}, 'Selected')">Select</button>
-                    <button onclick="updateStatus(${app.application_id}, 'Rejected')">Reject</button>
-                  </td>
+                  <td>${student.student_id}</td>
+                  <td>${student.university_roll_number}</td>
+                  <td>${student.name}</td>
+                  <td>${student.email}</td>
+                  <td>${student.department}</td>
+                  <td>${student.cgpa}</td>
+                  <td>${student.skills ? student.skills.join(', ') : 'N/A'}</td>
+                  <td>${student.resume_path ? `<a href="/uploads/${student.resume_path.split('/').pop()}" target="_blank">View</a>` : 'N/A'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         `;
       } else {
-        recentApps.innerHTML = '<p>No recent applications.</p>';
+        studentsTable.innerHTML = '<p>No registered students.</p>';
       }
     } else {
-      document.getElementById('recent-applications').innerHTML = '<p>Failed to load applications.</p>';
+      document.getElementById('recent-applications').innerHTML = '<p>Failed to load students.</p>';
     }
   } catch (error) {
-    console.error('Error loading applications:', error);
-    document.getElementById('recent-applications').innerHTML = '<p>Error loading applications.</p>';
+    console.error('Error loading students:', error);
+    document.getElementById('recent-applications').innerHTML = '<p>Error loading students.</p>';
+  }
+}
+
+// Filter students by roll number, branch, or skill
+function filterStudents() {
+  const input = document.getElementById('student-search');
+  const filter = input.value.toLowerCase();
+  const table = document.getElementById('students-table');
+  const tr = table.getElementsByTagName('tr');
+
+  for (let i = 1; i < tr.length; i++) {
+    const tdRollNo = tr[i].getElementsByTagName('td')[0]; // Student ID
+    const tdUniRollNo = tr[i].getElementsByTagName('td')[1]; // University Roll Number
+    const tdBranch = tr[i].getElementsByTagName('td')[4];
+    const tdSkills = tr[i].getElementsByTagName('td')[6];
+    if (tdRollNo || tdUniRollNo || tdBranch || tdSkills) {
+      const txtValueRollNo = tdRollNo.textContent || tdRollNo.innerText;
+      const txtValueUniRollNo = tdUniRollNo.textContent || tdUniRollNo.innerText;
+      const txtValueBranch = tdBranch.textContent || tdBranch.innerText;
+      const txtValueSkills = tdSkills.textContent || tdSkills.innerText;
+      if (txtValueRollNo.toLowerCase().indexOf(filter) > -1 ||
+          txtValueUniRollNo.toLowerCase().indexOf(filter) > -1 ||
+          txtValueBranch.toLowerCase().indexOf(filter) > -1 ||
+          txtValueSkills.toLowerCase().indexOf(filter) > -1) {
+        tr[i].style.display = '';
+      } else {
+        tr[i].style.display = 'none';
+      }
+    }
   }
 }
 
@@ -116,10 +148,10 @@ async function loadRecentApplications() {
 async function loadOfficerReports() {
   try {
     // Fetch postings and applications to calculate reports
-    const postingsRes = await fetch(`${API_BASE}/officer/postings`, {
+    const postingsRes = await fetch(`${API_BASE}/api/officer/postings`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    const appsRes = await fetch(`${API_BASE}/officer/applications`, {
+    const appsRes = await fetch(`${API_BASE}/api/officer/applications`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (postingsRes.ok && appsRes.ok) {
@@ -128,8 +160,8 @@ async function loadOfficerReports() {
       const totalPostings = postings.length;
       const totalApps = apps.length;
       const selected = apps.filter(app => app.status === 'Selected').length;
-      const packages = apps.filter(app => app.status === 'Selected' && app.package).map(app => parseFloat(app.package));
-      const avgPackage = packages.length > 0 ? (packages.reduce((a, b) => a + b, 0) / packages.length).toFixed(2) : 0;
+      // Assuming package is not in applications, set to 0 for now
+      const avgPackage = 0;
 
       document.getElementById('total-postings').textContent = totalPostings;
       document.getElementById('total-apps').textContent = totalApps;
@@ -150,4 +182,49 @@ function editPosting(jobId) {
 function sendNotification() {
   // Placeholder for sending notification
   alert('Notification feature not implemented yet.');
+}
+
+// Search student by university roll number
+async function searchStudentByRollNumber() {
+  const rollNumber = document.getElementById('student-roll-search').value.trim();
+  if (!rollNumber) {
+    alert('Please enter a university roll number');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/officer/student/${rollNumber}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const student = await res.json();
+      const resultDiv = document.getElementById('student-profile-result');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = `
+        <h3>Student Profile</h3>
+        <p><strong>Student ID:</strong> ${student.student_id}</p>
+        <p><strong>University Roll Number:</strong> ${student.university_roll_number}</p>
+        <p><strong>Name:</strong> ${student.name}</p>
+        <p><strong>Email:</strong> ${student.email}</p>
+        <p><strong>Branch:</strong> ${student.branch}</p>
+        <p><strong>CGPA:</strong> ${student.cgpa}</p>
+        <p><strong>Skills:</strong> ${student.skills.join(', ')}</p>
+        <p><strong>Resume:</strong> ${student.resume_uploaded ? 'Uploaded' : 'Not uploaded'}</p>
+      `;
+    } else {
+      const resultDiv = document.getElementById('student-profile-result');
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = '<p>Student not found or invalid roll number.</p>';
+    }
+  } catch (error) {
+    console.error('Error searching student:', error);
+    alert('Failed to search student');
+  }
+}
+
+// Logout function
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('role');
+  window.location.href = '/';
 }

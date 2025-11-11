@@ -1,6 +1,13 @@
 // Dashboard specific JavaScript
 
+const API_BASE = '';
+const token = localStorage.getItem('token');
+
 document.addEventListener('DOMContentLoaded', () => {
+  if (!token) {
+    window.location.href = '/';
+    return;
+  }
   loadProfile();
   loadOpportunities();
   loadApplications();
@@ -10,19 +17,21 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load Profile Info
 async function loadProfile() {
   try {
-    const res = await fetch(`${API_BASE}/student/profile`, {
+    const res = await fetch(`${API_BASE}/api/student/profile`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
       const profile = await res.json();
       const profileInfo = document.getElementById('profile-info');
       profileInfo.innerHTML = `
+        <p><strong>Student ID:</strong> ${profile.student_id}</p>
+        <p><strong>University Roll Number:</strong> ${profile.university_roll_number}</p>
         <p><strong>Name:</strong> ${profile.name}</p>
         <p><strong>Email:</strong> ${profile.email}</p>
         <p><strong>Branch:</strong> ${profile.branch}</p>
         <p><strong>CGPA:</strong> ${profile.cgpa}</p>
         <p><strong>Skills:</strong> ${profile.skills.join(', ')}</p>
-        <p><strong>Resume:</strong> ${profile.resume ? 'Uploaded' : 'Not uploaded'}</p>
+        <p><strong>Resume:</strong> ${profile.resume_uploaded ? 'Uploaded' : 'Not uploaded'}</p>
       `;
     } else {
       document.getElementById('profile-info').innerHTML = '<p>Failed to load profile.</p>';
@@ -36,7 +45,7 @@ async function loadProfile() {
 // Load Available Opportunities
 async function loadOpportunities() {
   try {
-    const res = await fetch(`${API_BASE}/student/jobs`, {
+    const res = await fetch(`${API_BASE}/api/jobs`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
@@ -47,9 +56,8 @@ async function loadOpportunities() {
           <div class="opportunity-card">
             <h3>${job.title}</h3>
             <p><strong>Company:</strong> ${job.company || 'N/A'}</p>
-            <p><strong>Eligibility:</strong> Branch: ${job.branch_eligibility}, CGPA: ${job.min_cgpa}</p>
-            <p><strong>Package:</strong> ${job.package_stipend}</p>
-            <p><strong>Deadline:</strong> ${new Date(job.deadline).toLocaleDateString()}</p>
+            <p><strong>Location:</strong> ${job.location || 'N/A'}</p>
+            <p><strong>Description:</strong> ${job.description || 'N/A'}</p>
             <button onclick="apply(${job.job_id})">Apply</button>
           </div>
         `).join('');
@@ -68,7 +76,7 @@ async function loadOpportunities() {
 // Load Application Tracking
 async function loadApplications() {
   try {
-    const res = await fetch(`${API_BASE}/student/applications`, {
+    const res = await fetch(`${API_BASE}/api/student/applications`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
@@ -89,7 +97,7 @@ async function loadApplications() {
                 <tr>
                   <td>${app.title}</td>
                   <td>${app.status}</td>
-                  <td>${new Date(app.applied_at).toLocaleDateString()}</td>
+                  <td>${new Date(app.applied_on).toLocaleDateString()}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -110,7 +118,7 @@ async function loadApplications() {
 // Load Reports
 async function loadReports() {
   try {
-    const res = await fetch(`${API_BASE}/student/applications`, {
+    const res = await fetch(`${API_BASE}/api/student/applications`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) {
@@ -128,4 +136,44 @@ async function loadReports() {
   } catch (error) {
     console.error('Error loading reports:', error);
   }
+}
+
+// Apply for a job
+async function apply(jobId) {
+  const resumeInput = document.createElement('input');
+  resumeInput.type = 'file';
+  resumeInput.accept = '.pdf,.doc,.docx';
+  resumeInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('resume', file);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/jobs/${jobId}/apply`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert(result.message);
+        loadApplications(); // Refresh applications
+      } else {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Error applying:', error);
+      alert('Failed to apply');
+    }
+  };
+  resumeInput.click();
+}
+
+// Logout function
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('role');
+  window.location.href = '/';
 }
