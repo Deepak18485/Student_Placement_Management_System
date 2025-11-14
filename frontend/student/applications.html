@@ -12,5 +12,58 @@
     <a href="dashboard.html">Back to Dashboard</a>
   </div>
   <script src="../js/app.js"></script>
+  <script>
+    const API_BASE = '';
+    const token = localStorage.getItem('token');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!token) {
+        window.location.href = '/';
+        return;
+      }
+      loadApplications();
+    });
+
+    async function loadApplications() {
+      try {
+        const res = await fetch(`${API_BASE}/api/student/applications`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const applications = await res.json();
+          const applicationsList = document.getElementById('applications-list');
+          if (applications.length > 0) {
+            applicationsList.innerHTML = `
+              <table>
+                <thead>
+                  <tr>
+                    <th>Job Title</th>
+                    <th>Status</th>
+                    <th>Applied Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${applications.map(app => `
+                    <tr>
+                      <td>${app.title}</td>
+                      <td>${app.status}</td>
+                      <td>${new Date(app.applied_on).toLocaleDateString()}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          } else {
+            applicationsList.innerHTML = '<p>No applications yet.</p>';
+          }
+        } else {
+          document.getElementById('applications-list').innerHTML = '<p>Failed to load applications.</p>';
+        }
+      } catch (error) {
+        console.error('Error loading applications:', error);
+        document.getElementById('applications-list').innerHTML = '<p>Error loading applications.</p>';
+      }
+    }
+  </script>
 </body>
 </html>

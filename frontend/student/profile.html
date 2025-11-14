@@ -47,13 +47,14 @@
         });
         if (res.ok) {
           const profile = await res.json();
-          document.getElementById('student_id').value = profile.student_id;
-          document.getElementById('university_roll_number').value = profile.university_roll_number;
-          document.getElementById('name').value = profile.name;
-          document.getElementById('email').value = profile.email;
-          document.getElementById('branch').value = profile.branch;
-          document.getElementById('cgpa').value = profile.cgpa;
-          document.getElementById('skills').value = profile.skills.join(', ');
+          console.log('Profile data:', profile);
+          document.getElementById('student_id').value = profile.student_id || '';
+          document.getElementById('university_roll_number').value = profile.university_roll || '';
+          document.getElementById('name').value = profile.name || '';
+          document.getElementById('email').value = profile.email || '';
+          document.getElementById('branch').value = profile.branch || '';
+          document.getElementById('cgpa').value = profile.cgpa || '';
+          document.getElementById('skills').value = profile.skills ? profile.skills.join(', ') : '';
         } else {
           alert('Failed to load profile data');
         }

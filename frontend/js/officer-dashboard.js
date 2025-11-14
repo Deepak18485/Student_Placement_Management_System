@@ -1,4 +1,4 @@
-py// Officer Dashboard specific JavaScript
+// Officer Dashboard specific JavaScript
 
 const API_BASE = '';
 const token = localStorage.getItem('token');
@@ -8,28 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '/';
     return;
   }
-  loadOfficerProfile();
   loadActivePostings();
   loadRecentApplications();
   loadOfficerReports();
+  loadOfficerNotifications();
 });
 
-// Load Officer Profile Info
-async function loadOfficerProfile() {
-  try {
-    // For now, show placeholder as profile endpoint doesn't exist
-    const profileInfo = document.getElementById('officer-profile-info');
-    profileInfo.innerHTML = `
-      <p><strong>Name:</strong> Placement Officer</p>
-      <p><strong>Email:</strong> officer@example.com</p>
-      <p><strong>Department:</strong> Placement Cell</p>
-      <p><strong>Contact:</strong> +91-1234567890</p>
-    `;
-  } catch (error) {
-    console.error('Error loading officer profile:', error);
-    document.getElementById('officer-profile-info').innerHTML = '<p>Error loading profile.</p>';
-  }
-}
+// Load Officer Profile Info - Removed as per user request
 
 // Load Active Postings
 async function loadActivePostings() {
@@ -91,10 +76,10 @@ async function loadRecentApplications() {
               ${students.map(student => `
                 <tr>
                   <td>${student.student_id}</td>
-                  <td>${student.university_roll_number}</td>
+                  <td>${student.university_roll}</td>
                   <td>${student.name}</td>
                   <td>${student.email}</td>
-                  <td>${student.department}</td>
+                  <td>${student.branch}</td>
                   <td>${student.cgpa}</td>
                   <td>${student.skills ? student.skills.join(', ') : 'N/A'}</td>
                   <td>${student.resume_path ? `<a href="/uploads/${student.resume_path.split('/').pop()}" target="_blank">View</a>` : 'N/A'}</td>
@@ -179,9 +164,29 @@ function editPosting(jobId) {
   window.location.href = `postings.html?edit=${jobId}`;
 }
 
-function sendNotification() {
-  // Placeholder for sending notification
-  alert('Notification feature not implemented yet.');
+async function sendNotification() {
+  const message = prompt('Enter notification message:');
+  if (!message) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/officer/notifications`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ message })
+    });
+    if (res.ok) {
+      alert('Notification sent successfully!');
+      loadOfficerNotifications(); // Refresh notifications
+    } else {
+      alert('Failed to send notification.');
+    }
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    alert('Error sending notification.');
+  }
 }
 
 // Search student by university roll number
@@ -203,7 +208,7 @@ async function searchStudentByRollNumber() {
       resultDiv.innerHTML = `
         <h3>Student Profile</h3>
         <p><strong>Student ID:</strong> ${student.student_id}</p>
-        <p><strong>University Roll Number:</strong> ${student.university_roll_number}</p>
+        <p><strong>University Roll Number:</strong> ${student.university_roll}</p>
         <p><strong>Name:</strong> ${student.name}</p>
         <p><strong>Email:</strong> ${student.email}</p>
         <p><strong>Branch:</strong> ${student.branch}</p>
@@ -219,6 +224,34 @@ async function searchStudentByRollNumber() {
   } catch (error) {
     console.error('Error searching student:', error);
     alert('Failed to search student');
+  }
+}
+
+// Load Officer Notifications
+async function loadOfficerNotifications() {
+  try {
+    const res = await fetch(`${API_BASE}/api/officer/notifications`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const notifications = await res.json();
+      const notificationsList = document.getElementById('officer-notifications-list');
+      if (notifications.length > 0) {
+        notificationsList.innerHTML = notifications.map(notification => `
+          <div class="notification-item">
+            <p>${notification.message}</p>
+            <span class="notification-time">${new Date(notification.created_at).toLocaleString()}</span>
+          </div>
+        `).join('');
+      } else {
+        notificationsList.innerHTML = '<div class="notification-item"><p>No notifications sent yet.</p></div>';
+      }
+    } else {
+      document.getElementById('officer-notifications-list').innerHTML = '<div class="notification-item"><p>Failed to load notifications.</p></div>';
+    }
+  } catch (error) {
+    console.error('Error loading notifications:', error);
+    document.getElementById('officer-notifications-list').innerHTML = '<div class="notification-item"><p>Error loading notifications.</p></div>';
   }
 }
 

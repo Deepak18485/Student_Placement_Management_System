@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadOpportunities();
   loadApplications();
   loadReports();
+  loadNotifications();
 });
 
 // Load Profile Info
@@ -25,7 +26,7 @@ async function loadProfile() {
       const profileInfo = document.getElementById('profile-info');
       profileInfo.innerHTML = `
         <p><strong>Student ID:</strong> ${profile.student_id}</p>
-        <p><strong>University Roll Number:</strong> ${profile.university_roll_number}</p>
+        <p><strong>University Roll Number:</strong> ${profile.university_roll}</p>
         <p><strong>Name:</strong> ${profile.name}</p>
         <p><strong>Email:</strong> ${profile.email}</p>
         <p><strong>Branch:</strong> ${profile.branch}</p>
@@ -55,9 +56,11 @@ async function loadOpportunities() {
         opportunitiesList.innerHTML = jobs.slice(0, 3).map(job => `
           <div class="opportunity-card">
             <h3>${job.title}</h3>
-            <p><strong>Company:</strong> ${job.company || 'N/A'}</p>
-            <p><strong>Location:</strong> ${job.location || 'N/A'}</p>
-            <p><strong>Description:</strong> ${job.description || 'N/A'}</p>
+            <p><strong>Description:</strong> ${job.description}</p>
+            <p><strong>Eligible Branches:</strong> ${job.branch_eligibility}</p>
+            <p><strong>Min CGPA:</strong> ${job.min_cgpa}</p>
+            <p><strong>Package/Stipend:</strong> ${job.package_stipend}</p>
+            <p><strong>Deadline:</strong> ${new Date(job.deadline).toLocaleDateString()}</p>
             <button onclick="apply(${job.job_id})">Apply</button>
           </div>
         `).join('');
@@ -160,6 +163,8 @@ async function apply(jobId) {
       if (res.ok) {
         alert(result.message);
         loadApplications(); // Refresh applications
+        loadOpportunities(); // Refresh opportunities to remove applied job
+        loadReports(); // Refresh reports
       } else {
         alert(result.error);
       }
@@ -169,6 +174,34 @@ async function apply(jobId) {
     }
   };
   resumeInput.click();
+}
+
+// Load Notifications
+async function loadNotifications() {
+  try {
+    const res = await fetch(`${API_BASE}/api/student/notifications`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const notifications = await res.json();
+      const notificationsList = document.getElementById('notifications-list');
+      if (notifications.length > 0) {
+        notificationsList.innerHTML = notifications.map(notification => `
+          <div class="notification-item ${notification.is_read ? '' : 'unread'}">
+            <p>${notification.message}</p>
+            <span class="notification-time">${new Date(notification.created_at).toLocaleString()}</span>
+          </div>
+        `).join('');
+      } else {
+        notificationsList.innerHTML = '<div class="notification-item"><p>No notifications yet.</p></div>';
+      }
+    } else {
+      document.getElementById('notifications-list').innerHTML = '<div class="notification-item"><p>Failed to load notifications.</p></div>';
+    }
+  } catch (error) {
+    console.error('Error loading notifications:', error);
+    document.getElementById('notifications-list').innerHTML = '<div class="notification-item"><p>Error loading notifications.</p></div>';
+  }
 }
 
 // Logout function

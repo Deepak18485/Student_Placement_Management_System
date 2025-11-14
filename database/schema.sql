@@ -1,4 +1,4 @@
--- Student Internship & Placement Management System 
+-- Student Internship & Placement Management System
 
 -- Create Database
 CREATE DATABASE IF NOT EXISTS student_placement_system;
@@ -27,7 +27,7 @@ CREATE TABLE StudentSkill (
     student_id INT NOT NULL,
     skill_id INT NOT NULL,
     PRIMARY KEY (student_id, skill_id),
-    FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
     FOREIGN KEY (skill_id) REFERENCES Skill(skill_id) ON DELETE CASCADE
 );
 
@@ -67,7 +67,7 @@ CREATE TABLE Application (
     job_id INT NOT NULL,
     status ENUM('Applied', 'Shortlisted', 'Selected', 'Rejected') DEFAULT 'Applied',
     applied_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
     FOREIGN KEY (job_id) REFERENCES JobPosting(job_id) ON DELETE CASCADE,
     UNIQUE (student_id, job_id) -- Prevent duplicate applications
 );
@@ -78,6 +78,13 @@ CREATE TABLE Notification (
     message TEXT NOT NULL,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
 );
 
+CREATE TABLE SentNotifications (
+    sent_id INT AUTO_INCREMENT PRIMARY KEY,
+    officer_id INT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (officer_id) REFERENCES PlacementOfficer(officer_id) ON DELETE CASCADE
+);

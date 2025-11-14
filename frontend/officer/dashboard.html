@@ -20,10 +20,7 @@
     <main class="dashboard-main">
       <!-- Profile Section -->
       <section class="dashboard-section profile-section">
-        <h2>Profile Section</h2>
-        <div id="officer-profile-info" class="profile-card">
-          <p>Loading profile...</p>
-        </div>
+        <h2>Search Student</h2>
         <div class="search-section">
           <input type="text" id="student-roll-search" placeholder="Enter University Roll Number" />
           <button onclick="searchStudentByRollNumber()">Search Student</button>
@@ -31,7 +28,6 @@
         <div id="student-profile-result" class="profile-card" style="display: none;">
           <!-- Student profile will be displayed here -->
         </div>
-        <a href="#" class="edit-btn">Edit Profile</a>
       </section>
 
       <!-- Job/Internship Management -->
@@ -56,11 +52,7 @@
       <section class="dashboard-section notifications-section">
         <h2>Notifications & Communication</h2>
         <div id="officer-notifications-list" class="notifications-list">
-          <div class="notification-item">
-            <p>System ready for new postings.</p>
-            <span class="notification-time">Just now</span>
-          </div>
-          <!-- More notifications can be added dynamically -->
+          <!-- Notifications will be loaded dynamically -->
         </div>
         <button class="view-all-btn" onclick="sendNotification()">Send Notification</button>
       </section>

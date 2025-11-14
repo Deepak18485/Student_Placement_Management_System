@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify, send_from_directory
 import mysql.connector
 import os
@@ -73,6 +74,40 @@ def student_login():
 
 
 # ===========================
+# Student Authentication
+# ===========================
+@app.route("/api/student/register", methods=["POST"])
+def student_register():
+    data = request.json or {}
+    name = data.get("name")
+    email = data.get("email")
+    password = data.get("password")
+    branch = data.get("branch")
+    cgpa = data.get("cgpa")
+    university_roll = data.get("university_roll")
+
+    if not all([name, email, password, branch, cgpa, university_roll]):
+        return jsonify({"error": "All fields required"}), 400
+
+    hashed_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO students (name, email, password_hash, branch, cgpa, university_roll) VALUES (%s, %s, %s, %s, %s, %s)",
+            (name, email, hashed_pw, branch, float(cgpa), university_roll)
+        )
+        db.commit()
+        cur.close(); db.close()
+        return jsonify({"message": "Student registered successfully"}), 201
+    except mysql.connector.IntegrityError:
+        return jsonify({"error": "Email or university roll already exists"}), 409
+    except Exception as e:
+        print("Registration error:", e)
+        return jsonify({"error": "Registration failed"}), 500
+
+# ===========================
 # Officer Authentication
 # ===========================
 @app.route("/api/officer/register", methods=["POST"])
@@ -91,7 +126,7 @@ def officer_register():
         db = get_db()
         cur = db.cursor()
         cur.execute(
-            "INSERT INTO Officer (name, email, password_hash) VALUES (%s, %s, %s)",
+            "INSERT INTO PlacementOfficer (name, email, password_hash) VALUES (%s, %s, %s)",
             (name, email, hashed_pw)
         )
         db.commit()
@@ -115,7 +150,7 @@ def officer_login():
 
     db = get_db()
     cur = db.cursor(dictionary=True)
-    cur.execute("SELECT officer_id, email, password_hash, name FROM Officer WHERE email = %s", (email,))
+    cur.execute("SELECT officer_id, email, password_hash, name FROM PlacementOfficer WHERE email = %s", (email,))
     row = cur.fetchone()
     cur.close(); db.close()
 
@@ -139,12 +174,39 @@ def officer_login():
 # ===========================
 @app.route("/api/jobs", methods=["GET"])
 def get_jobs():
-    db = get_db()
-    cur = db.cursor(dictionary=True)
-    cur.execute("SELECT job_id, title, description, branch_eligibility, min_cgpa, package_stipend, deadline, created_at FROM JobPosting ORDER BY created_at DESC")
-    rows = cur.fetchall()
-    cur.close(); db.close()
-    return jsonify(rows)
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        student_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        # Get jobs that student hasn't applied to yet, and filter by eligibility
+        cur.execute("""
+            SELECT jp.job_id, jp.title, jp.description, jp.branch_eligibility, jp.min_cgpa, jp.package_stipend, jp.deadline, jp.created_at
+            FROM JobPosting jp
+            LEFT JOIN Application a ON jp.job_id = a.job_id AND a.student_id = %s
+            JOIN students s ON s.student_id = %s
+            WHERE a.application_id IS NULL
+            AND jp.deadline >= CURDATE()
+            AND jp.status = 'Open'
+            AND (jp.branch_eligibility = 'All' OR jp.branch_eligibility LIKE CONCAT('%%', s.branch, '%%'))
+            AND jp.min_cgpa <= s.cgpa
+            ORDER BY jp.created_at DESC
+        """, (student_id, student_id))
+        rows = cur.fetchall()
+        cur.close(); db.close()
+        return jsonify(rows)
+    except Exception as e:
+        print("Error fetching jobs:", e)
+        return jsonify({"error": "Failed to fetch jobs"}), 500
 
 @app.route("/api/jobs/<int:job_id>/apply", methods=["POST"])
 def apply_job(job_id):
@@ -177,7 +239,7 @@ def apply_job(job_id):
     return jsonify({"message": "Applied successfully"})
 
 # ===========================
-# Student Management 
+# Student Management
 # ===========================
 @app.route("/api/students", methods=["GET"])
 @app.route("/api/student/list", methods=["GET"])
@@ -301,6 +363,7 @@ def update_student_profile():
     email = data.get("email")
     branch = data.get("branch")
     cgpa = data.get("cgpa")
+    university_roll = data.get("university_roll")
 
     # Handle skills - could be JSON string or comma-separated string
     skills_raw = data.get("skills", "")
@@ -333,6 +396,9 @@ def update_student_profile():
         if cgpa:
             update_fields.append("cgpa = %s")
             update_values.append(float(cgpa))
+        if university_roll:
+            update_fields.append("university_roll = %s")
+            update_values.append(university_roll)
 
         if update_fields:
             update_values.append(student_id)
@@ -399,14 +465,55 @@ def get_student_applications():
         print("Error fetching applications:", e)
         return jsonify({"error": "Failed to fetch applications"}), 500
 
-@app.route("/api/officer/postings", methods=["GET"])
-def get_officer_postings():
-    """Get all job postings for officer"""
-    # Assuming officers can view all postings
+@app.route("/api/student/notifications", methods=["GET"])
+def get_student_notifications():
+    """Get notifications for the logged-in student"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        student_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
     try:
         db = get_db()
         cur = db.cursor(dictionary=True)
-        cur.execute("SELECT job_id, title, description, branch_eligibility, min_cgpa, package_stipend, deadline, created_at FROM JobPosting ORDER BY created_at DESC")
+        cur.execute("""
+            SELECT notification_id, message, is_read, created_at
+            FROM Notification
+            WHERE student_id = %s
+            ORDER BY created_at DESC
+        """, (student_id,))
+        notifications = cur.fetchall()
+        cur.close()
+        db.close()
+        return jsonify(notifications)
+    except Exception as e:
+        print("Error fetching notifications:", e)
+        return jsonify({"error": "Failed to fetch notifications"}), 500
+
+@app.route("/api/officer/postings", methods=["GET"])
+def get_officer_postings():
+    """Get all job postings for officer"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        officer_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        cur.execute("SELECT job_id, title, description, branch_eligibility, min_cgpa, package_stipend, deadline, created_at FROM JobPosting WHERE officer_id = %s ORDER BY created_at DESC", (officer_id,))
         postings = cur.fetchall()
         cur.close()
         db.close()
@@ -414,6 +521,65 @@ def get_officer_postings():
     except Exception as e:
         print("Error fetching postings:", e)
         return jsonify({"error": "Failed to fetch postings"}), 500
+
+@app.route("/api/officer/postings", methods=["POST"])
+def create_job_posting():
+    """Create a new job posting"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        officer_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    data = request.json or {}
+    title = data.get("title")
+    description = data.get("description")
+    branch_eligibility = data.get("branch_eligibility")
+    min_cgpa = data.get("min_cgpa")
+    package_stipend = data.get("package_stipend")
+    deadline = data.get("deadline")
+    skills = data.get("skills", [])
+
+    if not all([title, description, branch_eligibility, min_cgpa, package_stipend, deadline]):
+        return jsonify({"error": "All fields required"}), 400
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+
+        # Insert job posting
+        cur.execute("""
+            INSERT INTO JobPosting (officer_id, title, description, branch_eligibility, min_cgpa, package_stipend, deadline)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (officer_id, title, description, branch_eligibility, float(min_cgpa), float(package_stipend), deadline))
+
+        job_id = cur.lastrowid
+
+        # Insert skills
+        if skills:
+            for skill_name in skills:
+                skill_name = skill_name.strip()
+                if skill_name:
+                    # Insert skill if not exists
+                    cur.execute("INSERT IGNORE INTO Skill (skill_name) VALUES (%s)", (skill_name,))
+                    cur.execute("SELECT skill_id FROM Skill WHERE skill_name = %s", (skill_name,))
+                    skill_id_row = cur.fetchone()
+                    if skill_id_row:
+                        skill_id_val = skill_id_row[0]
+                        cur.execute("INSERT INTO JobSkill (job_id, skill_id) VALUES (%s, %s)", (job_id, skill_id_val))
+
+        db.commit()
+        cur.close()
+        db.close()
+        return jsonify({"message": "Job posting created successfully", "job_id": job_id}), 201
+    except Exception as e:
+        print("Error creating job posting:", e)
+        return jsonify({"error": "Failed to create job posting"}), 500
 
 @app.route("/api/officer/student/<university_roll>", methods=["GET"])
 def get_student_by_roll_number(university_roll):
@@ -452,7 +618,7 @@ def get_officer_applications():
         db = get_db()
         cur = db.cursor(dictionary=True)
         cur.execute("""
-            SELECT a.application_id, s.name as student_name, j.title as job_title, a.status, a.applied_on
+            SELECT a.application_id, a.job_id, s.name as student_name, j.title as job_title, a.status, a.applied_on
             FROM Application a
             JOIN students s ON a.student_id = s.student_id
             JOIN JobPosting j ON a.job_id = j.job_id
@@ -465,6 +631,118 @@ def get_officer_applications():
     except Exception as e:
         print("Error fetching applications:", e)
         return jsonify({"error": "Failed to fetch applications"}), 500
+
+@app.route("/api/officer/applications/<int:application_id>/status", methods=["PUT"])
+def update_application_status(application_id):
+    """Update application status"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        # Verify officer role
+        if payload.get("role") != "officer":
+            return jsonify({"error": "Officer access required"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    data = request.json or {}
+    status = data.get("status")
+
+    if not status or status not in ['Applied', 'Shortlisted', 'Selected', 'Rejected']:
+        return jsonify({"error": "Valid status required"}), 400
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("UPDATE Application SET status = %s WHERE application_id = %s", (status, application_id))
+        if cur.rowcount == 0:
+            db.rollback()
+            cur.close()
+            db.close()
+            return jsonify({"error": "Application not found"}), 404
+        db.commit()
+        cur.close()
+        db.close()
+        return jsonify({"message": "Application status updated successfully"})
+    except Exception as e:
+        print("Error updating application status:", e)
+        return jsonify({"error": "Failed to update application status"}), 500
+
+@app.route("/api/officer/notifications", methods=["POST"])
+def send_notification():
+    """Send notification to all students"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        # Verify officer role
+        if payload.get("role") != "officer":
+            return jsonify({"error": "Officer access required"}), 403
+        officer_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    data = request.json or {}
+    message = data.get("message")
+
+    if not message:
+        return jsonify({"error": "Message required"}), 400
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        # Insert into SentNotifications
+        cur.execute("INSERT INTO SentNotifications (officer_id, message) VALUES (%s, %s)", (officer_id, message))
+        sent_id = cur.lastrowid
+        # Get all student IDs
+        cur.execute("SELECT student_id FROM students")
+        students = cur.fetchall()
+        # Insert notification for each student
+        for student in students:
+            cur.execute("INSERT INTO Notification (student_id, message) VALUES (%s, %s)", (student[0], message))
+        db.commit()
+        cur.close()
+        db.close()
+        return jsonify({"message": "Notification sent to all students"}), 201
+    except Exception as e:
+        print("Error sending notification:", e)
+        return jsonify({"error": "Failed to send notification"}), 500
+
+@app.route("/api/officer/notifications", methods=["GET"])
+def get_officer_notifications():
+    """Get recent notifications sent by officer (for display in dashboard)"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        # Verify officer role
+        if payload.get("role") != "officer":
+            return jsonify({"error": "Officer access required"}), 403
+        officer_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        db = get_db()
+        cur = db.cursor(dictionary=True)
+        # Get recent sent notifications by this officer (last 10)
+        cur.execute("SELECT message, created_at FROM SentNotifications WHERE officer_id = %s ORDER BY created_at DESC LIMIT 10", (officer_id,))
+        notifications = cur.fetchall()
+        cur.close()
+        db.close()
+        return jsonify(notifications)
+    except Exception as e:
+        print("Error fetching notifications:", e)
+        return jsonify({"error": "Failed to fetch notifications"}), 500
     
     
 # ===========================

@@ -12,5 +12,81 @@
     <a href="dashboard.html">Back to Dashboard</a>
   </div>
   <script src="../js/app.js"></script>
+  <script>
+    const API_BASE = '';
+    const token = localStorage.getItem('token');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!token) {
+        window.location.href = '/';
+        return;
+      }
+      loadJobs();
+    });
+
+    async function loadJobs() {
+      try {
+        const res = await fetch(`${API_BASE}/api/jobs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const jobs = await res.json();
+          const jobsList = document.getElementById('jobs-list');
+          if (jobs.length > 0) {
+            jobsList.innerHTML = jobs.map(job => `
+              <div class="job-card">
+                <h3>${job.title}</h3>
+                <p><strong>Description:</strong> ${job.description}</p>
+                <p><strong>Eligible Branches:</strong> ${job.branch_eligibility}</p>
+                <p><strong>Min CGPA:</strong> ${job.min_cgpa}</p>
+                <p><strong>Package/Stipend:</strong> ${job.package_stipend}</p>
+                <p><strong>Deadline:</strong> ${new Date(job.deadline).toLocaleDateString()}</p>
+                <button onclick="apply(${job.job_id})">Apply</button>
+              </div>
+            `).join('');
+          } else {
+            jobsList.innerHTML = '<p>No eligible job postings available.</p>';
+          }
+        } else {
+          document.getElementById('jobs-list').innerHTML = '<p>Failed to load jobs.</p>';
+        }
+      } catch (error) {
+        console.error('Error loading jobs:', error);
+        document.getElementById('jobs-list').innerHTML = '<p>Error loading jobs.</p>';
+      }
+    }
+
+    async function apply(jobId) {
+      const resumeInput = document.createElement('input');
+      resumeInput.type = 'file';
+      resumeInput.accept = '.pdf,.doc,.docx';
+      resumeInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('resume', file);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/jobs/${jobId}/apply`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+          });
+          const result = await res.json();
+          if (res.ok) {
+            alert(result.message);
+            loadJobs(); // Refresh jobs list to remove applied job
+          } else {
+            alert(result.error);
+          }
+        } catch (error) {
+          console.error('Error applying:', error);
+          alert('Failed to apply');
+        }
+      };
+      resumeInput.click();
+    }
+  </script>
 </body>
 </html>

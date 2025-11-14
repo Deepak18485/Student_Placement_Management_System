@@ -9,17 +9,92 @@
   <div class="container">
     <h1>Add Job Posting</h1>
     <form id="posting-form">
-      <input type="text" id="title" placeholder="Job Title" required>
-      <textarea id="description" placeholder="Description" required></textarea>
-      <input type="text" id="branch" placeholder="Eligible Branches (comma separated)" required>
-      <input type="number" id="min-cgpa" step="0.01" placeholder="Min CGPA" required>
-      <input type="number" id="package" step="0.01" placeholder="Package/Stipend" required>
-      <input type="date" id="deadline" required>
-      <input type="text" id="skills" placeholder="Required Skills (comma separated)" required>
+      <input type="text" id="title" name="title" placeholder="Job Title" required>
+      <textarea id="description" name="description" placeholder="Description" required></textarea>
+      <input type="text" id="branch" name="branch" placeholder="Eligible Branches (comma separated)" required>
+      <input type="number" id="min-cgpa" name="min-cgpa" step="0.01" placeholder="Min CGPA" required>
+      <input type="number" id="package" name="package" step="0.01" placeholder="Package/Stipend" required>
+      <input type="date" id="deadline" name="deadline" required>
+      <input type="text" id="skills" name="skills" placeholder="Required Skills (comma separated)" required>
       <button type="submit">Post Job</button>
     </form>
     <a href="dashboard.html">Back to Dashboard</a>
   </div>
   <script src="../js/app.js"></script>
+  <script>
+    const API_BASE = '';
+    const token = localStorage.getItem('token');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!token) {
+        window.location.href = '/';
+        return;
+      }
+    });
+
+    // Handle job posting form submission
+    document.getElementById('posting-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Check if all required fields are filled
+      const requiredFields = ['title', 'description', 'branch', 'min-cgpa', 'package', 'deadline', 'skills'];
+      let allFilled = true;
+      requiredFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (!field.value.trim()) {
+          allFilled = false;
+          field.style.borderColor = 'red';
+        } else {
+          field.style.borderColor = '';
+        }
+      });
+
+      if (!allFilled) {
+        alert('Please fill all required fields');
+        return;
+      }
+
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+
+      // Process skills
+      data.skills = data.skills ? data.skills.split(',').map(s => s.trim()).filter(s => s) : [];
+
+      // Convert numeric fields
+      data.min_cgpa = parseFloat(data['min-cgpa']);
+      data.package = parseFloat(data.package);
+
+      // Rename fields to match API
+      data.branch_eligibility = data.branch;
+      data.package_stipend = data.package;
+      delete data.branch;
+      delete data.package;
+
+      console.log('Submitting data:', data);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/officer/postings`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        console.log('Response:', result);
+        if (res.ok) {
+          alert(result.message);
+          // Reset form
+          e.target.reset();
+        } else {
+          alert(result.error || 'Failed to create job posting');
+        }
+      } catch (error) {
+        console.error('Error creating job posting:', error);
+        alert('Failed to create job posting');
+      }
+    });
+  </script>
 </body>
 </html>

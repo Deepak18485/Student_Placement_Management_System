@@ -16,5 +16,126 @@
     <a href="dashboard.html">Back to Dashboard</a>
   </div>
   <script src="../js/app.js"></script>
+  <script>
+    const API_BASE = '';
+    const token = localStorage.getItem('token');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!token) {
+        window.location.href = '/';
+        return;
+      }
+      loadJobPostings();
+    });
+
+    // Load job postings into select dropdown
+    async function loadJobPostings() {
+      try {
+        const res = await fetch(`${API_BASE}/api/officer/postings`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const postings = await res.json();
+          const select = document.getElementById('job-select');
+          select.innerHTML = '<option value="">Select a job posting</option>';
+          postings.forEach(posting => {
+            const option = document.createElement('option');
+            option.value = posting.job_id;
+            option.textContent = posting.title;
+            select.appendChild(option);
+          });
+        } else {
+          document.getElementById('applications-list').innerHTML = '<p>Failed to load job postings.</p>';
+        }
+      } catch (error) {
+        console.error('Error loading postings:', error);
+        document.getElementById('applications-list').innerHTML = '<p>Error loading job postings.</p>';
+      }
+    }
+
+    // Load applications when job is selected
+    document.getElementById('job-select').addEventListener('change', async (e) => {
+      const jobId = e.target.value;
+      if (!jobId) {
+        document.getElementById('applications-list').innerHTML = '';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/officer/applications`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const applications = await res.json();
+          const filteredApps = applications.filter(app => app.job_id == jobId);
+
+          const listDiv = document.getElementById('applications-list');
+          if (filteredApps.length > 0) {
+            listDiv.innerHTML = `
+              <h3>Applications for selected job</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Job Title</th>
+                    <th>Status</th>
+                    <th>Applied On</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filteredApps.map(app => `
+                    <tr>
+                      <td>${app.student_name}</td>
+                      <td>${app.job_title}</td>
+                      <td>${app.status}</td>
+                      <td>${new Date(app.applied_on).toLocaleDateString()}</td>
+                      <td>
+                        <button onclick="updateApplicationStatus(${app.application_id}, 'Shortlisted')">Shortlist</button>
+                        <button onclick="updateApplicationStatus(${app.application_id}, 'Selected')">Select</button>
+                        <button onclick="updateApplicationStatus(${app.application_id}, 'Rejected')">Reject</button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          } else {
+            listDiv.innerHTML = '<p>No applications found for this job.</p>';
+          }
+        } else {
+          document.getElementById('applications-list').innerHTML = '<p>Failed to load applications.</p>';
+        }
+      } catch (error) {
+        console.error('Error loading applications:', error);
+        document.getElementById('applications-list').innerHTML = '<p>Error loading applications.</p>';
+      }
+    });
+
+    // Update application status
+    async function updateApplicationStatus(applicationId, status) {
+      try {
+        const res = await fetch(`${API_BASE}/api/officer/applications/${applicationId}/status`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status })
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(result.message);
+          // Reload applications for current job
+          document.getElementById('job-select').dispatchEvent(new Event('change'));
+        } else {
+          alert(result.error || 'Failed to update application status');
+        }
+      } catch (error) {
+        console.error('Error updating application status:', error);
+        alert('Failed to update application status');
+      }
+    }
+  </script>
 </body>
 </html>
