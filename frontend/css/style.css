@@ -1,6 +1,8 @@
+/* Theme1: Professional theme with light gray, navy blue, etc. */
+/*
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f5f5f5;
   margin: 0;
   padding: 0;
   min-height: 100vh;
@@ -8,6 +10,34 @@ body {
   justify-content: center;
   align-items: center;
   color: #333;
+}
+*/
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #333;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800'%3E%3Cdefs%3E%3ClinearGradient id='waveGrad1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23add8e6;stop-opacity:0.8' /%3E%3Cstop offset='100%25' style='stop-color:%2387ceeb;stop-opacity:0.4' /%3E%3C/linearGradient%3E%3ClinearGradient id='waveGrad2' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%234682b4;stop-opacity:0.6' /%3E%3Cstop offset='100%25' style='stop-color:%23b0e0e6;stop-opacity:0.3' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0,400 Q300,300 600,400 T1200,400 V800 H0 Z' fill='url(%23waveGrad1)' /%3E%3Cpath d='M0,500 Q400,350 800,450 T1200,500 V800 H0 Z' fill='url(%23waveGrad2)' /%3E%3Cpath d='M0,600 Q500,400 1000,550 T1200,600 V800 H0 Z' fill='url(%23waveGrad1)' opacity='0.5' /%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
 }
 
 .container {
@@ -45,7 +75,7 @@ h1 {
 
 #auth button {
   padding: 15px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #2b6cb0;
   border: none;
   color: white;
   border-radius: 10px;
@@ -53,12 +83,12 @@ h1 {
   font-size: 1.1em;
   font-weight: 600;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 15px rgba(43, 108, 176, 0.4);
 }
 
 #auth button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+  box-shadow: 0 8px 25px rgba(43, 108, 176, 0.6);
 }
 
 #auth button:active {
@@ -106,8 +136,8 @@ input[type="email"]:focus,
 input[type="password"]:focus,
 input[type="number"]:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #2b6cb0;
+  box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.1);
 }
 
 button[type="submit"] {
@@ -135,9 +165,9 @@ button[type="submit"]:active {
 
 .back-button {
   padding: 10px 15px;
-  background: #e2e8f0;
+  background: #a0aec0;
   border: none;
-  color: #4a5568;
+  color: #ffffff;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.9em;
@@ -147,13 +177,13 @@ button[type="submit"]:active {
 }
 
 .back-button:hover {
-  background: #cbd5e0;
+  background: #718096;
 }
 
 /* Dashboard Styles */
 .dashboard-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: #ffffff;
   padding: 20px;
 }
 
@@ -182,7 +212,7 @@ button[type="submit"]:active {
 
 .nav-link {
   padding: 10px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #2b6cb0;
   color: white;
   text-decoration: none;
   border-radius: 8px;
@@ -192,7 +222,7 @@ button[type="submit"]:active {
 
 .nav-link:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 5px 15px rgba(43, 108, 176, 0.4);
 }
 
 .logout-btn {
@@ -275,7 +305,7 @@ button[type="submit"]:active {
   background: #f7fafc;
   padding: 15px;
   border-radius: 10px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #2b6cb0;
   transition: all 0.3s ease;
 }
 
@@ -297,7 +327,7 @@ button[type="submit"]:active {
 .view-all-btn {
   display: inline-block;
   padding: 10px 15px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #2b6cb0;
   color: white;
   text-decoration: none;
   border-radius: 8px;
@@ -308,7 +338,7 @@ button[type="submit"]:active {
 
 .view-all-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 5px 15px rgba(43, 108, 176, 0.4);
 }
 
 .applications-table {
@@ -371,7 +401,7 @@ button[type="submit"]:active {
 }
 
 .report-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #2b6cb0;
   color: white;
   padding: 20px;
   border-radius: 10px;
