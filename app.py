@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify, send_from_directory
 import mysql.connector
 import os
@@ -188,19 +187,16 @@ def get_jobs():
     try:
         db = get_db()
         cur = db.cursor(dictionary=True)
-        # Get jobs that student hasn't applied to yet, and filter by eligibility
+        # Get all open jobs that student hasn't applied to yet
         cur.execute("""
             SELECT jp.job_id, jp.title, jp.description, jp.branch_eligibility, jp.min_cgpa, jp.package_stipend, jp.deadline, jp.created_at
             FROM JobPosting jp
             LEFT JOIN Application a ON jp.job_id = a.job_id AND a.student_id = %s
-            JOIN students s ON s.student_id = %s
             WHERE a.application_id IS NULL
             AND jp.deadline >= CURDATE()
             AND jp.status = 'Open'
-            AND (jp.branch_eligibility = 'All' OR jp.branch_eligibility LIKE CONCAT('%%', s.branch, '%%'))
-            AND jp.min_cgpa <= s.cgpa
             ORDER BY jp.created_at DESC
-        """, (student_id, student_id))
+        """, (student_id,))
         rows = cur.fetchall()
         cur.close(); db.close()
         return jsonify(rows)
@@ -226,12 +222,34 @@ def apply_job(job_id):
     if not resume:
         return jsonify({"error": "Resume file required"}), 400
 
+    # Check eligibility
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+    cur.execute("""
+        SELECT jp.min_cgpa, jp.branch_eligibility, s.cgpa, s.branch
+        FROM JobPosting jp
+        JOIN students s ON s.student_id = %s
+        WHERE jp.job_id = %s
+    """, (student_id, job_id))
+    job = cur.fetchone()
+    if not job:
+        cur.close(); db.close()
+        return jsonify({"error": "Job not found"}), 404
+
+    # Check CGPA
+    if job['cgpa'] < job['min_cgpa']:
+        cur.close(); db.close()
+        return jsonify({"error": f"CGPA requirement not met. Required: {job['min_cgpa']}, Your CGPA: {job['cgpa']}"}), 400
+
+    # Check branch eligibility
+    if job['branch_eligibility'] != 'All' and job['branch'] not in job['branch_eligibility']:
+        cur.close(); db.close()
+        return jsonify({"error": f"Branch eligibility not met. Eligible branches: {job['branch_eligibility']}, Your branch: {job['branch']}"}), 400
+
     filename = secure_filename(resume.filename)
     save_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{student_id}_{int(datetime.datetime.utcnow().timestamp())}_{filename}")
     resume.save(save_path)
 
-    db = get_db()
-    cur = db.cursor()
     cur.execute("INSERT INTO Application (student_id, job_id, resume_path, status, applied_on) VALUES (%s, %s, %s, 'Applied', NOW())",
                 (student_id, job_id, save_path))
     db.commit()
@@ -465,6 +483,42 @@ def get_student_applications():
         print("Error fetching applications:", e)
         return jsonify({"error": "Failed to fetch applications"}), 500
 
+@app.route("/api/student/applications/<int:application_id>", methods=["DELETE"])
+def withdraw_application(application_id):
+    """Withdraw an application"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        student_id = payload["id"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        # Check if application belongs to student and is not selected
+        cur.execute("SELECT status FROM Application WHERE application_id = %s AND student_id = %s", (application_id, student_id))
+        app = cur.fetchone()
+        if not app:
+            cur.close(); db.close()
+            return jsonify({"error": "Application not found"}), 404
+        if app[0] == 'Shortlisted':
+            cur.close(); db.close()
+            return jsonify({"error": "Cannot withdraw a shortlisted application"}), 400
+
+        cur.execute("DELETE FROM Application WHERE application_id = %s", (application_id,))
+        db.commit()
+        cur.close()
+        db.close()
+        return jsonify({"message": "Application withdrawn successfully"})
+    except Exception as e:
+        print("Error withdrawing application:", e)
+        return jsonify({"error": "Failed to withdraw application"}), 500
+
 @app.route("/api/student/notifications", methods=["GET"])
 def get_student_notifications():
     """Get notifications for the logged-in student"""
@@ -670,6 +724,46 @@ def update_application_status(application_id):
     except Exception as e:
         print("Error updating application status:", e)
         return jsonify({"error": "Failed to update application status"}), 500
+
+@app.route("/api/officer/applications/bulk-status", methods=["PUT"])
+def bulk_update_application_status():
+    """Bulk update application statuses"""
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        return jsonify({"error": "Authorization required"}), 401
+    try:
+        payload = jwt.decode(token.split(" ")[1], JWT_SECRET, algorithms=["HS256"])
+        # Verify officer role
+        if payload.get("role") != "officer":
+            return jsonify({"error": "Officer access required"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    data = request.json or {}
+    application_ids = data.get("application_ids", [])
+    status = data.get("status")
+
+    if not application_ids or not isinstance(application_ids, list):
+        return jsonify({"error": "Application IDs list required"}), 400
+    if not status or status not in ['Applied', 'Shortlisted', 'Selected', 'Rejected']:
+        return jsonify({"error": "Valid status required"}), 400
+
+    try:
+        db = get_db()
+        cur = db.cursor()
+        # Update multiple applications
+        format_strings = ','.join(['%s'] * len(application_ids))
+        cur.execute(f"UPDATE Application SET status = %s WHERE application_id IN ({format_strings})", [status] + application_ids)
+        updated_count = cur.rowcount
+        db.commit()
+        cur.close()
+        db.close()
+        return jsonify({"message": f"Updated {updated_count} applications successfully"})
+    except Exception as e:
+        print("Error bulk updating application status:", e)
+        return jsonify({"error": "Failed to bulk update application status"}), 500
 
 @app.route("/api/officer/notifications", methods=["POST"])
 def send_notification():

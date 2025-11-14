@@ -93,14 +93,16 @@ async function loadApplications() {
                 <th>Job Title</th>
                 <th>Status</th>
                 <th>Applied Date</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               ${apps.slice(0, 5).map(app => `
                 <tr>
                   <td>${app.title}</td>
-                  <td>${app.status}</td>
+                  <td>${app.status === 'Selected' ? 'Shortlisted' : app.status}</td>
                   <td>${new Date(app.applied_on).toLocaleDateString()}</td>
+                  <td>${app.status !== 'Shortlisted' ? `<button onclick="withdrawApplication(${app.application_id})">Withdraw</button>` : 'N/A'}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -128,12 +130,12 @@ async function loadReports() {
       const apps = await res.json();
       const total = apps.length;
       const shortlisted = apps.filter(app => app.status === 'Shortlisted').length;
-      const selected = apps.filter(app => app.status === 'Selected').length;
+
       const rejected = apps.filter(app => app.status === 'Rejected').length;
 
       document.getElementById('total-applications').textContent = total;
       document.getElementById('shortlisted-count').textContent = shortlisted;
-      document.getElementById('selected-count').textContent = selected;
+
       document.getElementById('rejected-count').textContent = rejected;
     }
   } catch (error) {
@@ -201,6 +203,30 @@ async function loadNotifications() {
   } catch (error) {
     console.error('Error loading notifications:', error);
     document.getElementById('notifications-list').innerHTML = '<div class="notification-item"><p>Error loading notifications.</p></div>';
+  }
+}
+
+// Withdraw Application
+async function withdrawApplication(applicationId) {
+  if (!confirm('Are you sure you want to withdraw this application?')) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/student/applications/${applicationId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const result = await res.json();
+    if (res.ok) {
+      alert(result.message);
+      loadApplications(); // Refresh applications
+      loadOpportunities(); // Refresh opportunities to show withdrawn job again
+      loadReports(); // Refresh reports
+    } else {
+      alert(result.error);
+    }
+  } catch (error) {
+    console.error('Error withdrawing application:', error);
+    alert('Failed to withdraw application');
   }
 }
 

@@ -10,7 +10,7 @@ function generateReport() {
     if (chart) chart.destroy();
     const labels = data.map(item => item[type === 'company' ? 'company' : type === 'branch' ? 'branch' : 'year']);
     const totals = data.map(item => item.total_applications);
-    const selecteds = data.map(item => item.selected);
+    const shortlisteds = data.map(item => item.shortlisted);
     chart = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -22,8 +22,8 @@ function generateReport() {
           borderColor: 'rgba(75, 192, 192, 1)',
           borderWidth: 1
         }, {
-          label: 'Selected',
-          data: selecteds,
+          label: 'Shortlisted',
+          data: shortlisteds,
           backgroundColor: 'rgba(153, 102, 255, 0.2)',
           borderColor: 'rgba(153, 102, 255, 1)',
           borderWidth: 1

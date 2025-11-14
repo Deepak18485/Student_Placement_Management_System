@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
   loadActivePostings();
+  loadApplicationPipeline();
   loadRecentApplications();
   loadOfficerReports();
   loadOfficerNotifications();
@@ -252,6 +253,200 @@ async function loadOfficerNotifications() {
   } catch (error) {
     console.error('Error loading notifications:', error);
     document.getElementById('officer-notifications-list').innerHTML = '<div class="notification-item"><p>Error loading notifications.</p></div>';
+  }
+}
+
+// Load Application Pipeline
+async function loadApplicationPipeline() {
+  try {
+    const postingsRes = await fetch(`${API_BASE}/api/officer/postings`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const appsRes = await fetch(`${API_BASE}/api/officer/applications`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (postingsRes.ok && appsRes.ok) {
+      const postings = await postingsRes.json();
+      const applications = await appsRes.json();
+
+      const pipelineContainer = document.getElementById('application-pipeline');
+
+      if (postings.length === 0) {
+        pipelineContainer.innerHTML = '<p>No job postings available.</p>';
+        return;
+      }
+
+      // Group applications by job_id
+      const appsByJob = {};
+      applications.forEach(app => {
+        if (!appsByJob[app.job_id]) {
+          appsByJob[app.job_id] = [];
+        }
+        appsByJob[app.job_id].push(app);
+      });
+
+      // Create pipeline HTML
+      const pipelineHTML = postings.map(posting => {
+        const jobApps = appsByJob[posting.job_id] || [];
+        const statuses = ['Applied', 'Shortlisted', 'Rejected'];
+
+        const statusColumns = statuses.map(status => {
+          const statusApps = jobApps.filter(app => app.status === status);
+          const appCards = statusApps.map(app => `
+            <div class="application-card">
+              <input type="checkbox" class="application-checkbox" value="${app.application_id}" onchange="handleCheckboxChange(this)">
+              <p><strong>${app.student_name}</strong></p>
+              <p>Applied: ${new Date(app.applied_on).toLocaleDateString()}</p>
+              <div class="application-actions">
+                ${status !== 'Shortlisted' ? `<button class="btn-shortlist" onclick="updateApplicationStatus(${app.application_id}, 'Shortlisted')">Shortlist</button>` : ''}
+                ${status !== 'Rejected' ? `<button class="btn-reject" onclick="updateApplicationStatus(${app.application_id}, 'Rejected')">Reject</button>` : ''}
+              </div>
+            </div>
+          `).join('');
+
+          return `
+            <div class="pipeline-status-column">
+              <h4>
+                <input type="checkbox" onchange="toggleSelectAll('${posting.job_id}', '${status}', this.checked)">
+                ${status} (${statusApps.length})
+              </h4>
+              <div class="pipeline-applications">
+                ${appCards || '<p>No applications</p>'}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="pipeline-job-column">
+            <h3>${posting.title}</h3>
+            ${statusColumns}
+          </div>
+        `;
+      }).join('');
+
+      pipelineContainer.innerHTML = pipelineHTML;
+    } else {
+      document.getElementById('application-pipeline').innerHTML = '<p>Failed to load pipeline.</p>';
+    }
+  } catch (error) {
+    console.error('Error loading pipeline:', error);
+    document.getElementById('application-pipeline').innerHTML = '<p>Error loading pipeline.</p>';
+  }
+}
+
+// Update Application Status
+async function updateApplicationStatus(applicationId, status) {
+  try {
+    const res = await fetch(`${API_BASE}/api/officer/applications/${applicationId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      loadApplicationPipeline(); // Refresh pipeline
+      loadOfficerReports(); // Update reports
+    } else {
+      alert(result.error || 'Failed to update application status');
+    }
+  } catch (error) {
+    console.error('Error updating application status:', error);
+    alert('Failed to update application status');
+  }
+}
+
+// Handle individual checkbox change
+function handleCheckboxChange(checkbox) {
+  const statusColumn = checkbox.closest('.pipeline-status-column');
+  const checkboxes = statusColumn.querySelectorAll('.application-checkbox');
+  const selectAllCheckbox = statusColumn.querySelector('input[type="checkbox"][onchange*="toggleSelectAll"]');
+
+  // Update select all checkbox state
+  const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+  selectAllCheckbox.checked = checkedBoxes.length === checkboxes.length && checkboxes.length > 0;
+
+  if (checkedBoxes.length > 0) {
+    // Show bulk actions
+    showBulkActions(statusColumn, checkedBoxes.map(cb => parseInt(cb.value)), statusColumn.querySelector('h4').textContent.split(' ')[0]);
+  } else {
+    // Hide bulk actions
+    hideBulkActions(statusColumn);
+  }
+}
+
+// Toggle Select All for a status column
+function toggleSelectAll(jobId, status, checked) {
+  const statusColumn = event.target.closest('.pipeline-status-column');
+  const checkboxes = statusColumn.querySelectorAll('.application-checkbox');
+
+  checkboxes.forEach(cb => {
+    cb.checked = checked;
+  });
+
+  if (checked) {
+    // Collect all selected application IDs
+    const selectedIds = Array.from(checkboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+    if (selectedIds.length > 0) {
+      // Show bulk action buttons
+      showBulkActions(statusColumn, selectedIds, status);
+    }
+  } else {
+    // Hide bulk actions
+    hideBulkActions(statusColumn);
+  }
+}
+
+// Show bulk action buttons
+function showBulkActions(statusColumn, selectedIds, currentStatus) {
+  let bulkActions = statusColumn.querySelector('.bulk-actions');
+  if (!bulkActions) {
+    bulkActions = document.createElement('div');
+    bulkActions.className = 'bulk-actions';
+    bulkActions.style.marginTop = '10px';
+    statusColumn.appendChild(bulkActions);
+  }
+
+  bulkActions.innerHTML = `
+    <button class="btn-shortlist" onclick="bulkUpdateStatus(${JSON.stringify(selectedIds).replace(/"/g, "'")}, 'Shortlisted')" ${currentStatus === 'Shortlisted' ? 'disabled' : ''}>Bulk Shortlist</button>
+    <button class="btn-reject" onclick="bulkUpdateStatus(${JSON.stringify(selectedIds).replace(/"/g, "'")}, 'Rejected')" ${currentStatus === 'Rejected' ? 'disabled' : ''}>Bulk Reject</button>
+  `;
+}
+
+// Hide bulk actions
+function hideBulkActions(statusColumn) {
+  const bulkActions = statusColumn.querySelector('.bulk-actions');
+  if (bulkActions) {
+    bulkActions.remove();
+  }
+}
+
+// Bulk update status
+async function bulkUpdateStatus(applicationIds, status) {
+  try {
+    const res = await fetch(`${API_BASE}/api/officer/applications/bulk-status`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ application_ids: applicationIds, status })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      alert(result.message);
+      loadApplicationPipeline(); // Refresh pipeline
+      loadOfficerReports(); // Update reports
+    } else {
+      alert(result.error || 'Failed to bulk update applications');
+    }
+  } catch (error) {
+    console.error('Error bulk updating applications:', error);
+    alert('Failed to bulk update applications');
   }
 }
 

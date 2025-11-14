@@ -429,6 +429,121 @@ button[type="submit"]:active {
   margin-right: 8px;
 }
 
+/* Pipeline Styles */
+.pipeline-container {
+  display: flex;
+  overflow-x: auto;
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.pipeline-job-column {
+  min-width: 300px;
+  background: #f7fafc;
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.pipeline-job-column h3 {
+  margin: 0 0 15px 0;
+  color: #2b6cb0;
+  font-size: 1.2em;
+}
+
+.pipeline-status-column {
+  margin-bottom: 20px;
+}
+
+.pipeline-status-column h4 {
+  margin: 0 0 10px 0;
+  color: #4a5568;
+  font-size: 1em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pipeline-status-column h4 input[type="checkbox"] {
+  margin: 0;
+}
+
+.pipeline-applications {
+  min-height: 100px;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.application-card {
+  background: #edf2f7;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 5px;
+  border-left: 3px solid #2b6cb0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.application-checkbox {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.application-card:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.application-card p {
+  margin: 2px 0;
+  font-size: 0.9em;
+}
+
+.application-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 5px;
+}
+
+.application-actions button {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.8em;
+  transition: background 0.3s ease;
+}
+
+.btn-shortlist {
+  background: #48bb78;
+  color: white;
+}
+
+.btn-shortlist:hover {
+  background: #38a169;
+}
+
+.btn-select {
+  background: #2b6cb0;
+  color: white;
+}
+
+.btn-select:hover {
+  background: #1e4a67;
+}
+
+.btn-reject {
+  background: #e53e3e;
+  color: white;
+}
+
+.btn-reject:hover {
+  background: #c53030;
+}
+
 /* Responsive design */
 @media (max-width: 600px) {
   .container {
@@ -454,5 +569,11 @@ button[type="submit"]:active {
   button[type="submit"] {
     padding: 12px;
     font-size: 1em;
+  }
+  .pipeline-container {
+    flex-direction: column;
+  }
+  .pipeline-job-column {
+    min-width: auto;
   }
 }
